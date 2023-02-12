@@ -1,21 +1,29 @@
-from flask import Flask, make_response, redirect, render_template
-from flask_bootstrap import Bootstrap
-
-app = Flask(__name__)
-bootstrap = Bootstrap(app)
+from flask import render_template, make_response
+from . import main
 
 
-@app.route('/')
+@main.route('/')
 def hello_world():
     return render_template('index.html')
 
 
-@app.route('/user/<name>')
+@main.route('/init')
+def init():
+    return render_template('index.html')
+
+
+# @main.route('/delete')
+# def delete():
+#     orm.delete()
+#     return render_template('index.html')
+
+
+@main.route('/user/<name>')
 def user(name):
     return render_template('user.html', name=name)
 
 
-@app.route('/user/<name>/<int:age>')
+@main.route('/user/<name>/<int:age>')
 def user_age(name, age):
     """
     :param name: the name of the user, second item in URL
@@ -27,16 +35,3 @@ def user_age(name, age):
     response.set_cookie('greetings', 'fuck off')
 
     return response
-
-
-@app.errorhandler(404)
-def page_not_found(e):
-    return render_template('404.html'), 404
-
-
-@app.errorhandler(500)
-def internal_server_error(e):
-    return render_template('500.html'), 500
-
-# if __name__ == '__main__':
-#     app.run(debug=True)
