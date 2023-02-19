@@ -1,0 +1,14 @@
+Dear {{ user.username }},
+<br>
+An email update was requested for your account and this email is going to be your new mail address, you can update your email by clicking on below link:
+<br>
+{{ url_for('auth.update_email', token=token, _external=True) }}
+<br>
+<br>
+If you have not requested any email update just ignore this mail.
+<br>
+<br>
+Sincerely,
+The Flasky Team
+<br>
+Note: replies to this email address are not monitored.

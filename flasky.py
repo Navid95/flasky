@@ -10,8 +10,11 @@ print(f'App created with DB URI: {app.config["SQLALCHEMY_DATABASE_URI"]}')
 
 with app.app_context():
     db.create_all()
-    print('db created')
     db.session.commit()
+    print('db created')
+
+print(app.config['MAIL_PASSWORD'])
+print(app.config['MAIL_USERNAME'])
 
 
 @app.shell_context_processor

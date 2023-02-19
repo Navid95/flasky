@@ -1,5 +1,8 @@
 from flask import render_template, make_response
 from . import main
+from app.decorators import permission_required, admin_required
+from flask_login import login_required
+from app.models import Permission
 
 
 @main.route('/')
@@ -35,3 +38,17 @@ def user_age(name, age):
     response.set_cookie('greetings', 'fuck off')
 
     return response
+
+
+@main.route('/admin')
+@login_required
+@admin_required
+def for_admins_only():
+    return "For administrators!"
+
+
+@main.route('/moderate')
+@login_required
+@permission_required(Permission.MODERATE)
+def for_moderators_only():
+    return "For comment moderators!"
