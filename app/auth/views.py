@@ -1,6 +1,7 @@
 from . import auth, forms
 from flask import render_template, request, url_for, redirect, flash
-from ..models import User
+# from ..models import User
+import app.models as m
 from flask_login import login_user, logout_user, login_required, current_user
 from flasky import db
 
@@ -23,7 +24,7 @@ def login():
     form = forms.LoginForm()
     if form.validate_on_submit():
         print(f'Form validated')
-        user = User.query.filter_by(email=form.email.data).first()
+        user = m.User.query.filter_by(email=form.email.data).first()
         if user is not None and user.verify_password(form.password.data):
             print(f'User not None and password is verified')
             login_user(user, form.remember_me.data)
@@ -50,7 +51,7 @@ def register():
     from app import email as mail
     form = forms.RegistrationForm()
     if form.validate_on_submit():
-        user = User(username=form.username.data,
+        user = m.User(username=form.username.data,
                     password=form.password.data,
                     email=form.email.data)
         db.session.add(user)
@@ -83,7 +84,7 @@ def confirm(token):
 
 @auth.before_app_request
 def before_app_request():
-    print(f'{__name__}: before_app_request hook')
+    print(f'{__name__}: before_app_request hook, headers: {request}, user: {current_user}')
     if current_user.is_authenticated \
             and not current_user.confirmed \
             and request.blueprint != 'auth' \
@@ -131,7 +132,7 @@ def update_pass():
 def reset_pass_generate():
     form = forms.PasswordResetRequest()
     if form.validate_on_submit():
-        user = User.load_user_by_email(form.email.data)
+        user = m.User.load_user_by_email(form.email.data)
         if user is not None:
             from app import email as mail
             mail.send_password_reset_link(user)
@@ -145,7 +146,7 @@ def reset_pass_generate():
 
 @auth.route('/password/reset/<token>', methods=['GET', 'POST'])
 def reset_pass(token):
-    user = User.load_user_by_token(token)
+    user = m.User.load_user_by_token(token)
     if user is not None:
         form = forms.PasswordUpdateForm()
         if form.validate_on_submit():

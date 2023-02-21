@@ -2,13 +2,21 @@ from . import db, login_manager
 from werkzeug.security import check_password_hash, generate_password_hash
 from flask_login import UserMixin, AnonymousUserMixin
 import jwt
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import flasky
 from flask import current_app
 
+
+"""
+Token Keys
+"""
 TOKEN_ID_KEY = 'user_id'
 TOKEN_EXP_KEY = 'exp'
 TOKEN_EMAIL_KEY = 'email'
+
+"""
+Role Names
+"""
 ADMIN_ROLE_NAME = 'Administrator'
 MODERATOR_ROLE_NAME = 'Moderator'
 USER_ROLE_NAME = 'User'
@@ -25,15 +33,42 @@ class User(UserMixin, db.Model):
     role_id = db.Column(db.Integer, db.ForeignKey('roles.id'))
 
     def __init__(self, **kwargs):
-        super(User, self).__init__(kwargs)
+        super(User, self).__init__(**kwargs)
         if self.role is None:
             if self.email == current_app.config['FLASKY_ADMIN']:
                 self.role = Role.query.filter_by(name=ADMIN_ROLE_NAME).first()
             else:
                 self.role = Role.query.filter_by(default=True).first()
+        self.confirmed = False
 
     def __repr__(self):
         return f'<User ({self.id}, {self.username})>'
+
+    def to_json(self):
+        json = dict()
+        json['id'] = self.id
+        json['username'] = self.username
+        json['email'] = self.email
+        json['confirmed'] = self.confirmed
+        json['password_hash'] = self.password_hash
+        json['role_id'] = self.role_id
+        return json
+
+    @staticmethod
+    def from_json(json_dict):
+        user = User(username=json_dict['username'], password=json_dict['password'], email=json_dict['email'])
+        return user
+
+    @staticmethod
+    def persist(user):
+        try:
+            db.session.add(user)
+            db.session.commit()
+            return User.load_user_by_email(user.email)
+        except BaseException:
+            print(f'{__name__}: Exception in persisting the user: {user}')
+            return False
+
 
     @property
     def password(self):
@@ -53,24 +88,31 @@ class User(UserMixin, db.Model):
         id = raw_token[TOKEN_ID_KEY]
         return load_user(id)
 
+    @staticmethod
+    def __find_all__():
+        return User.query.all()
+
     def can(self, permission):
         return self.role.has_permission(permission)
 
     def is_admin(self):
         return self.role.has_permission(Permission.ADMIN)
 
+    def is_anonymous(self):
+        return False
+
     def verify_password(self, password):
         return check_password_hash(self.password_hash, password)
 
     def generate_user_token(self, expiration=3600):
         raw_token = dict()
-        raw_token[TOKEN_EXP_KEY] = datetime.now() + timedelta(milliseconds=expiration)
+        # raw_token[TOKEN_EXP_KEY] = datetime.now() + timedelta(milliseconds=expiration)
         raw_token[TOKEN_ID_KEY] = self.id
         return encode_token(raw_token)
 
     def generate_email_update_token(self, new_email, expiration=3600):
         raw_token = dict()
-        raw_token[TOKEN_EXP_KEY] = datetime.now() + timedelta(milliseconds=expiration)
+        # raw_token[TOKEN_EXP_KEY] = datetime.now() + timedelta(milliseconds=expiration)
         raw_token[TOKEN_ID_KEY] = self.id
         raw_token[TOKEN_EMAIL_KEY] = new_email
         return encode_token(raw_token)
@@ -126,6 +168,9 @@ class AnonymousUser(AnonymousUserMixin):
     def is_administrator(self):
         return False
 
+    def is_anonymous(self):
+        return True
+
 
 login_manager.anonymous_user = AnonymousUser
 
@@ -139,7 +184,7 @@ class Role(db.Model):
     permissions = db.Column(db.Integer)
 
     def __init__(self, **kwargs):
-        super(Role, self).__init__(kwargs)
+        super(Role, self).__init__(**kwargs)
         if self.permissions is None:
             self.permissions = 0
 
@@ -214,8 +259,10 @@ def load_user(id):
     return User.query.get(int(id))
 
 
-def encode_token(raw_token):
+def encode_token(raw_token, expiration=3600):
     app = flasky.app
+    # raw_token[TOKEN_EXP_KEY] = datetime.now(timezone.utc) + timedelta(milliseconds=expiration)
+    raw_token[TOKEN_EXP_KEY] = datetime.now() + timedelta(seconds=expiration)
     return jwt.encode(payload=raw_token, key=app.config['SECRET_KEY'],
                       algorithm=app.config['CUSTOM_ENCRYPTION_ALGO'])
 
